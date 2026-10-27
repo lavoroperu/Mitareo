@@ -230,6 +230,13 @@ table.cmp{width:100%;font-size:13px}table.cmp th,table.cmp td{padding:6px 8px;te
     <div class="panel"><div class="lbl">Guardar y compartir</div>
       <div class="sub" style="margin:0 0 8px">Descarga una copia del sistema con todos los Excel cargados. Comparte ese archivo (no el anterior).</div>
       <button class="btn" id="dlAll" style="background:var(--acc);color:#fff;border-color:var(--acc)">⬇ Descargar sistema actualizado</button></div>
+    <div class="panel"><div class="lbl">Publicar automático en GitHub (se configura una sola vez)</div>
+      <div class="sub" style="margin:0 0 8px">Con esto, al cargar o eliminar un Excel el sistema se actualiza solo para todos. Los datos se guardan solo en este navegador.</div>
+      <input type="search" id="ghRepo" placeholder="usuario/repositorio" style="width:100%;margin-bottom:6px">
+      <div class="row" style="gap:6px;margin-bottom:6px"><input type="search" id="ghBranch" placeholder="rama (main)" style="flex:1"><input type="search" id="ghPath" placeholder="archivo (index.html)" style="flex:1"></div>
+      <input type="password" id="ghTok" placeholder="Token de GitHub (Contents: Read and write)" style="width:100%;margin-bottom:8px">
+      <button class="btn" id="ghSave">Guardar y probar conexión</button> <button class="btn" id="ghOff">Quitar</button>
+      <div class="sub" id="ghMsg"></div></div>
     <div class="panel"><div class="lbl">Sedes publicadas</div><div id="slist"></div><div style="margin-top:10px"><button class="btn" id="delAll">🗑 Eliminar todas las sedes</button></div></div></div>
   </div>
 </section>
@@ -491,6 +498,18 @@ function downloadHtml(){
   const url=URL.createObjectURL(new Blob([buildHtml()],{type:'text/html;charset=utf-8'}));
   const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),4000);return name}
+const GH_KEY='tareo_gh';
+function ghCfg(){try{const c=JSON.parse(localStorage.getItem(GH_KEY)||'null');return c&&c.repo&&c.token?c:null}catch(e){return null}}
+function b64u(t){const u=new TextEncoder().encode(t);let o='';for(let i=0;i<u.length;i+=0x8000)o+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(o)}
+function ghErr(st){return st===401?'Token inválido o vencido.':st===403?'El token no tiene permiso de escritura (Contents: Read and write).':st===404?'No encuentro el repositorio, la rama o el archivo (revisa los datos y que el token tenga acceso a ese repo).':st===409||st===422?'Conflicto al guardar. Recarga la página (Ctrl+F5) e inténtalo de nuevo.':'Error de GitHub ('+st+').'}
+async function ghPublish(html){
+  const c=ghCfg();if(!c)throw new Error('Sin conexión a GitHub');
+  const api='https://api.github.com/repos/'+c.repo+'/contents/'+c.path.split('/').map(encodeURIComponent).join('/');
+  const h={'Authorization':'Bearer '+c.token,'Accept':'application/vnd.github+json'};
+  let sha;const g=await fetch(api+'?ref='+encodeURIComponent(c.branch)+'&_='+Date.now(),{headers:h,cache:'no-store'});
+  if(g.ok)sha=(await g.json()).sha;else if(g.status!==404)throw new Error(ghErr(g.status));
+  const r=await fetch(api,{method:'PUT',headers:Object.assign({'Content-Type':'application/json'},h),body:JSON.stringify({message:'Actualizar tareo '+new Date().toISOString(),content:b64u(html),branch:c.branch,sha})});
+  if(!r.ok)throw new Error(ghErr(r.status))}
 async function publishAll(msg){
   // Dentro de Claude: publica directo. Fuera de Claude (archivo en tu laptop): descarga un HTML nuevo con los datos incluidos.
   if(typeof claude!=='undefined'&&claude&&claude.use){
@@ -499,6 +518,10 @@ async function publishAll(msg){
       const art=await claude.use('artifact');
       await art.publish(buildHtml());amsg(msg);return
     }catch(e){/* si falla, cae a la descarga */}}
+  if(ghCfg()){
+    try{amsg('Publicando en GitHub…');await ghPublish(buildHtml());
+      amsg(msg+' ✔ Publicado en GitHub. En 1–2 minutos lo verá todo el mundo (si no, que presionen Ctrl+F5).');return
+    }catch(e){amsg('No se pudo publicar en GitHub: '+(e.message||e)+' Se descarga el archivo como respaldo.')}}
   const n=downloadHtml();
   amsg('Listo ✔ Se descargó «'+n+'» con todos los Excel cargados. Ese es el archivo que debes compartir.')}
 function slist(){setTimeout(dash,0);$('noData').hidden=SEDES.length>0;$('goTeam').disabled=!SEDES.length;
@@ -607,6 +630,15 @@ function setup(){
         $('found').innerHTML='';slist();publishAll('Listo: ya está disponible para todos.')}
     }catch(err){amsg(err.message||'No se pudo leer el archivo.')}
     e.target.value=''};
+  {const c0=ghCfg()||{};$('ghRepo').value=c0.repo||'';$('ghBranch').value=c0.branch||'main';$('ghPath').value=c0.path||'index.html';$('ghTok').value=c0.token||'';
+   $('ghSave').onclick=async()=>{const c={repo:$('ghRepo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\/$/,''),branch:$('ghBranch').value.trim()||'main',path:$('ghPath').value.trim()||'index.html',token:$('ghTok').value.trim()};
+     if(!/^[^\/\s]+\/[^\/\s]+$/.test(c.repo)||!c.token){$('ghMsg').textContent='Escribe el repositorio como usuario/repositorio y pega el token.';return}
+     $('ghMsg').textContent='Probando…';
+     try{const r=await fetch('https://api.github.com/repos/'+c.repo+'/contents/'+c.path+'?ref='+encodeURIComponent(c.branch),{headers:{'Authorization':'Bearer '+c.token,'Accept':'application/vnd.github+json'},cache:'no-store'});
+       if(!r.ok)throw new Error(ghErr(r.status));
+       localStorage.setItem(GH_KEY,JSON.stringify(c));$('ghMsg').textContent='Conectado ✔ Desde ahora, cada cambio se publica solo.'}
+     catch(e){$('ghMsg').textContent='No se pudo conectar: '+(e.message||e)}};
+   $('ghOff').onclick=()=>{try{localStorage.removeItem(GH_KEY)}catch(e){}$('ghTok').value='';$('ghMsg').textContent='Conexión eliminada de este navegador.'}}
   $('dlAll').onclick=()=>{const n=downloadHtml();amsg('Descargado «'+n+'». Compártelo con tu equipo.')};
   $('delAll').onclick=e=>{const b=e.currentTarget;
     if(!SEDES.length){amsg('No hay sedes para eliminar.');return}
