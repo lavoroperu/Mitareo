@@ -170,6 +170,7 @@ table.cmp{width:100%;font-size:13px}table.cmp th,table.cmp td{padding:6px 8px;te
 .tt{width:100%;font-size:13px}.tt th,.tt td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}.tt th{background:var(--bg);font-size:11px;text-transform:uppercase;color:var(--mut);position:sticky;top:0}
 .tt td.n{text-align:right;font-weight:700;white-space:nowrap}.tt .dch{margin:2px 3px 2px 0;display:inline-block}.tt .tb{margin:0}
 .tot td{font-weight:700;background:var(--bg)}
+.tt th.so{cursor:pointer;user-select:none}.tt th.so:hover,.tt th.so.on{color:var(--acc)}.tt th .ar{margin-left:4px;font-size:10px}
 </style>
 </head>
 <body>
@@ -214,8 +215,8 @@ table.cmp{width:100%;font-size:13px}table.cmp th,table.cmp td{padding:6px 8px;te
     <input type="password" id="ap" placeholder="Contraseña" autocomplete="current-password" style="width:100%;margin-bottom:8px;font:inherit;padding:10px;min-height:42px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--ink)">
     <button class="btn" id="lgb" style="background:var(--acc);color:#fff;border-color:var(--acc)">Ingresar</button></div>
   <div id="apanel" hidden="">
-    <div class="tabs" style="margin-bottom:12px"><button id="atD" class="on">📊 Resumen</button><button id="atF">🚫 Faltas</button><button id="atH">⏱ Horas extras</button><button id="atU">📁 Cargar datos</button><button id="atA">📣 Aviso</button></div>
-    <div id="adash"></div><div id="afal" hidden=""></div><div id="ahh" hidden=""></div>
+    <div class="tabs" style="margin-bottom:12px"><button id="atD" class="on">📊 Resumen</button><button id="atF">🚫 Faltas</button><button id="atT">🕘 Tardanzas</button><button id="atH">⏱ Horas extras</button><button id="atU">📁 Cargar datos</button><button id="atA">📣 Aviso</button></div>
+    <div id="adash"></div><div id="afal" hidden=""></div><div id="atar" hidden=""></div><div id="ahh" hidden=""></div>
     <div id="aaviso" hidden="">
     <div class="panel avp"><div class="lbl">Aviso que se muestra al abrir la app</div>
       <label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="avOn"> Mostrar el aviso al abrir</label>
@@ -697,7 +698,7 @@ const infoLine=r=>{const i=r.info||{},ok=t=>t?`<b>${t}</b>`:'<b style="color:var
   return `<div class="sub" style="margin:6px 0 0">Cargo: ${ok(i.cargo)} · Fecha de ingreso: ${ok(i.ing)} · DNI/Código: ${i.cod&&i.cod.length?'<b>'+i.cod.join(', ')+'</b>':ok('')}</div>`+(miss?`<div class="sub" style="margin:4px 0 0">Columnas vistas antes de las fechas: ${(i.cols||[]).join(' | ')||'ninguna'}</div>`:'')};
 function setup(){
   SEDES.forEach(s=>s.people.forEach(p=>p.k=norm(p.n)));
-  ready=initAdmin();$('lgb').onclick=login;$('atD').onclick=()=>adminTab('D');$('atU').onclick=()=>adminTab('U');$('atA').onclick=()=>adminTab('A');$('atF').onclick=()=>adminTab('F');$('atH').onclick=()=>adminTab('H');$('afal').onclick=$('ahh').onclick=adminClick;$('avFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;AVD.img=await fileToDataUrl(f,900);avDraw();e.target.value=''};$('avDelImg').onclick=()=>{AVD.img='';avDraw()};$('avPrev').onclick=()=>showAviso(avRead());$('avSave').onclick=()=>{AV=Object.assign({},avRead());publishAll('Aviso guardado.')};$('goAviso').onclick=()=>showAviso({img:AV.img,text:AV.text});$('avOv').onclick=e=>{if(e.target.id==='avOv')$('avOv').classList.remove('show')};$('adash').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.s!==undefined){DS.si=+b.dataset.s;DS.W=null}else if(b.dataset.all){DS.W=null}else if(b.dataset.w!==undefined){const k=+b.dataset.w;if(!DS.W)DS.W=new Set([k]);else if(DS.W.has(k)){if(DS.W.size>1)DS.W.delete(k)}else DS.W.add(k)}else if(b.dataset.dx){dlHHEE();return}else if(b.dataset.dl){dlFaltas();return}dash()};$('ap').onkeydown=e=>{if(e.key==='Enter')login()};
+  ready=initAdmin();$('lgb').onclick=login;$('atD').onclick=()=>adminTab('D');$('atU').onclick=()=>adminTab('U');$('atA').onclick=()=>adminTab('A');$('atF').onclick=()=>adminTab('F');$('atT').onclick=()=>adminTab('T');$('atH').onclick=()=>adminTab('H');$('afal').onclick=$('ahh').onclick=adminClick;$('atar').onclick=tdClick;$('atar').oninput=tdInput;$('atar').onchange=tdChange;$('avFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;AVD.img=await fileToDataUrl(f,900);avDraw();e.target.value=''};$('avDelImg').onclick=()=>{AVD.img='';avDraw()};$('avPrev').onclick=()=>showAviso(avRead());$('avSave').onclick=()=>{AV=Object.assign({},avRead());publishAll('Aviso guardado.')};$('goAviso').onclick=()=>showAviso({img:AV.img,text:AV.text});$('avOv').onclick=e=>{if(e.target.id==='avOv')$('avOv').classList.remove('show')};$('adash').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.s!==undefined){DS.si=+b.dataset.s;DS.W=null}else if(b.dataset.all){DS.W=null}else if(b.dataset.w!==undefined){const k=+b.dataset.w;if(!DS.W)DS.W=new Set([k]);else if(DS.W.has(k)){if(DS.W.size>1)DS.W.delete(k)}else DS.W.add(k)}else if(b.dataset.dx){dlHHEE();return}else if(b.dataset.dl){dlFaltas();return}dash()};$('ap').onkeydown=e=>{if(e.key==='Enter')login()};
   $('weeks').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.from=+b.dataset.a;S.to=+b.dataset.b;if(S.day<S.from||S.day>S.to)S.day=S.from;sync()};
   $('from').onchange=e=>{S.from=+e.target.value;if(S.to<S.from)S.to=S.from;S.day=Math.min(Math.max(S.day,S.from),S.to);sync()};
   $('to').onchange=e=>{S.to=+e.target.value;if(S.from>S.to)S.from=S.to;S.day=Math.min(Math.max(S.day,S.from),S.to);sync()};
@@ -842,8 +843,8 @@ function adminClick(e){const b=e.target.closest('button');if(!b)return;
   else if(b.dataset.all)DS.W=null;
   else if(b.dataset.w!==undefined){const k=+b.dataset.w;if(!DS.W)DS.W=new Set([k]);else if(DS.W.has(k)){if(DS.W.size>1)DS.W.delete(k)}else DS.W.add(k)}
   else if(b.dataset.t!==undefined)DS.T=b.dataset.t||null;
-  else if(b.dataset.dl){dlFaltas();return}else if(b.dataset.dx){dlHHEE();return}else return;
-  DS.tab==='F'?faltasView():hheeView()}
+  else if(b.dataset.dl){dlFaltas();return}else if(b.dataset.dx){dlHHEE();return}else if(b.dataset.dt){tdDownload();return}else return;
+  DS.tab==='F'?faltasView():DS.tab==='T'?tardView():hheeView()}
 const kpiH=a=>`<div class="kpis">${a.map(([l,v,c])=>`<div class="kpi" style="--k:${c}"><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
 const TCOL={T1:'#f0a62b',T2:'#0f62ac',T3:'#7b6ad8'};
 const tbd=t=>t?`<span class="tb ${t}">${t}</span>`:'—';
@@ -867,8 +868,8 @@ function hheeView(){
    kpiH([['HH.EE total',fh(T)+' h','#f0a62b'],['Personas con HH.EE',rows.length,'#0f62ac'],['HH.EE T1',fh(bt.T1)+' h',TCOL.T1],['HH.EE T2',fh(bt.T2)+' h',TCOL.T2],['HH.EE T3',fh(bt.T3)+' h',TCOL.T3]])+
    `<div class="scroll"><table class="tt"><thead><tr><th>Persona</th><th>Turno</th><th style="text-align:right">HH.EE</th><th>Detalle por día</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.p.n}</td><td>${tbd(r.t)}</td><td class="n" style="color:var(--FEt)">${fh(r.h)} h</td><td>${r.d.map(([i,x])=>`<span class="dch">${dlab2(sd,i)} · +${fh(x)} h</span>`).join('')}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Sin horas extras con estos filtros</td></tr>'}<tr class="tot"><td>TOTAL</td><td></td><td class="n">${fh(T)} h</td><td></td></tr></tbody></table></div>`}
 function adminTab(k){
-  [['atD','adash','D'],['atF','afal','F'],['atH','ahh','H'],['atU','aload','U'],['atA','aaviso','A']].forEach(([b,p,c])=>{$(b).classList.toggle('on',c===k);$(p).hidden=c!==k});
-  DS.tab=k;if(k==='D')dash();if(k==='F')faltasView();if(k==='H')hheeView();if(k==='A')avLoad()}
+  [['atD','adash','D'],['atF','afal','F'],['atT','atar','T'],['atH','ahh','H'],['atU','aload','U'],['atA','aaviso','A']].forEach(([b,p,c])=>{$(b).classList.toggle('on',c===k);$(p).hidden=c!==k});
+  DS.tab=k;if(k==='D')dash();if(k==='F')faltasView();if(k==='T')tardView();if(k==='H')hheeView();if(k==='A')avLoad()}
 async function zipX(SH){
   const z=new JSZip(),CT='application/vnd.openxmlformats-officedocument.',rels=a=>XH+`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${a.map(([i,t,g])=>`<Relationship Id="${i}" Type="${NS_R}/${t}" Target="${g}"/>`).join('')}</Relationships>`;
   z.file('[Content_Types].xml',XH+`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="${CT}spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="${CT}spreadsheetml.styles+xml"/>`+SH.map((s,k)=>`<Override PartName="/xl/worksheets/sheet${k+1}.xml" ContentType="${CT}spreadsheetml.worksheet+xml"/>`).join('')+'</Types>');
@@ -900,6 +901,161 @@ async function dlHHEE(){
   const nm='HHEE_'+sd.name.replace(/[^\wÁÉÍÓÚáéíóúñÑ]+/g,'_').replace(/^_|_$/g,'')+'_'+per.replace(/[^\w]+/g,'_')+(DS.T?'_'+DS.T:'')+'.xlsx',a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download=nm;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},1500);
   if(!sd.people.some(hasHrs))setTimeout(()=>alert('Esta sede no tiene horas cargadas (falta la hoja DETALLE). Solo se contaron DL/FEL a '+HORAS_EXTRA_DIA+' h.'),300)}
+
+/* ===== Tardanzas (administrador): marcación del reloj + horario de ingreso del tareo ===== */
+const TD={view:'D',so:{D:{k:'min',d:-1},P:{k:'min',d:-1}},q:'',tol:0,xc:new Set(),cg:[],cache:null},TDM={};
+const tdE=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const tdNz=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z ,]/g,' ').replace(/ +/g,' ').trim();
+const tdT=(d,h)=>{const[y,m,dd]=d.split('-').map(Number),[a,b]=h.split(':').map(Number);return Date.UTC(y,m-1,dd,a,b)/6e4};
+const tdHM=t=>{const m=((t%1440)+1440)%1440;return p2(Math.floor(m/60))+':'+p2(m%60)};
+const tdD=t=>new Date(t*6e4).toISOString().slice(0,10);
+const tdPu=p=>p.g||'(Sin puesto)';
+const tdKey=n=>'tareo_marc|'+n;
+function tdGet(sd){if(!TDM[sd.name]){try{const j=localStorage.getItem(tdKey(sd.name));if(j){const o=JSON.parse(j);if(o&&o.by){o.ver=1;TDM[sd.name]=o}}}catch(e){}}return TDM[sd.name]||null}
+function tdSave(name){try{const r=TDM[name];if(r)localStorage.setItem(tdKey(name),JSON.stringify({files:r.files,by:r.by,n:r.n}));else localStorage.removeItem(tdKey(name))}catch(e){}}
+function tdParse(rows){
+  const h=rows.findIndex(r=>r&&['TRABAJADOR','MARCA'].every(k=>r.some(c=>String(c==null?'':c).trim().toUpperCase()===k)));
+  if(h<0)return null;
+  const H=rows[h].map(x=>String(x==null?'':x).trim().toUpperCase()),cn=H.indexOf('TRABAJADOR'),cm=H.indexOf('MARCA'),o=[];
+  rows.slice(h+1).forEach(r=>{if(!r||!r[cn]||r[cm]==null)return;let t=null;const v=r[cm];
+    if(typeof v==='number')t=Math.round((v-25569)*1440);
+    else{const s=String(v);let m=s.match(/(\d{4}-\d{2}-\d{2})[ T](\d{1,2}:\d{2})/);
+      if(m)t=tdT(m[1],m[2]);else{m=s.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})[ T](\d{1,2}:\d{2})/);if(m)t=tdT(m[3]+'-'+p2(m[2])+'-'+p2(m[1]),m[4])}}
+    if(t!=null&&isFinite(t))o.push({n:String(r[cn]).trim(),t})});
+  return o}
+async function tdLoad(files){
+  const sd=SEDES[DS.si],msg=$('tdMsg');
+  try{
+    const by={},names=[];let n=0;
+    for(const f of files){
+      const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});let ms=null;
+      for(const sn of wb.SheetNames){ms=tdParse(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null}));if(ms)break}
+      if(!ms)throw new Error('«'+f.name+'»: no encuentro las columnas Trabajador y Marca.');
+      ms.forEach(m=>{(by[m.n]||(by[m.n]=[])).push(m.t);n++});names.push(clean(f.name))}
+    if(!n)throw new Error('El archivo no tiene marcaciones.');
+    TDM[sd.name]={files:names,by,n,ver:Date.now()};TD.cache=null;tdSave(sd.name);tardView()
+  }catch(x){if(msg){msg.style.color='var(--Ft)';msg.textContent='⚠ '+x.message}}}
+function tdIndex(sd){
+  const idx=new Map(),all=[];
+  sd.people.forEach((p,pi)=>{const z=tdNz(p.n),[s,g]=z.split(','),o={p,pi,sur:(s||'').trim(),giv:(g||'').trim().split(' '),tok:new Set(z.replace(/,/g,' ').split(' ').filter(Boolean))};
+    all.push(o);const k=o.sur+'|'+o.giv[0];(idx.get(k)||idx.set(k,[]).get(k)).push(o)});
+  return {idx,all}}
+function tdMatch(name,IX){
+  const z=tdNz(name),[s,g]=z.split(','),gv=(g||'').trim().split(' '),c=IX.idx.get((s||'').trim()+'|'+gv[0])||[];
+  let o=c.length===1?c[0]:c.find(x=>x.giv[1]&&gv[1]&&x.giv[1][0]===gv[1][0]);if(o)return o;
+  const tk=z.replace(/,/g,' ').split(' ').filter(Boolean);if(tk.length<3)return null;
+  let best=null,bs=0,bm=0,tie=false;
+  IX.all.forEach(x=>{const m=tk.filter(t=>x.tok.has(t)).length,sc=m/tk.length;if(sc>bs||(sc===bs&&m>bm)){bs=sc;bm=m;best=x;tie=false}else if(sc===bs&&m===bm&&best!==x)tie=true});
+  return best&&bs>=.75&&bm>=3&&!tie?best:null}
+// Calcula todas las tardanzas de la sede (todos los días); los filtros se aplican después.
+function tdCompute(sd){
+  const rec=tdGet(sd);if(!rec)return null;
+  const key=sd.name+'|'+TD.tol+'|'+rec.ver;if(TD.cache&&TD.cache.sd===sd&&TD.cache.key===key)return TD.cache.res;
+  const IX=tdIndex(sd),M=new Map(),noM=[];let last=-1e12;
+  Object.keys(rec.by).forEach(nm=>{const ts=rec.by[nm];ts.forEach(t=>{if(t>last)last=t});const o=tdMatch(nm,IX);
+    if(!o){noM.push(nm);return}const a=M.get(o.pi)||[];ts.forEach(t=>a.push(t));M.set(o.pi,a)});
+  const lastD=tdD(last),n=sd.days.length,ev=new Array(n).fill(0),sm=new Array(n).fill(0),rows=[];
+  sd.people.forEach((p,pi)=>{
+    const mk=(M.get(pi)||[]).sort((a,b)=>a-b).filter((t,j,a)=>j===0||t-a[j-1]>2),used=new Set();
+    sd.days.forEach((dy,i)=>{
+      const c=sd.codes[p.s[i]];if(!c||c.g!=='work'||!/^\d{1,2}:\d{2}$/.test(c.st||''))return;
+      if(dy.d>lastD)return;
+      const S=tdT(dy.d,c.st);let en=-1;
+      for(let j=0;j<mk.length;j++){if(!used.has(j)&&mk[j]>=S-360&&mk[j]<=S+300){en=j;break}}
+      if(en<0){sm[i]++;return}
+      used.add(en);ev[i]++;
+      const hrs=(p.h&&p.h[i])||8,E=S+hrs*60,lo=mk[en]+90,hi=mk[en]+Math.max(840,hrs*60+420);
+      let ex=-1,bd=1e9;for(let j=0;j<mk.length;j++){if(!used.has(j)&&mk[j]>=lo&&mk[j]<=hi){const d=Math.abs(mk[j]-E);if(d<bd){bd=d;ex=j}}}
+      if(ex>=0)used.add(ex);
+      const d=mk[en]-S;
+      if(d>TD.tol)rows.push({p,pi,i,f:dy.d,c,t:tOf(c,p),S,m:mk[en],tard:d})})});
+  const res={rows,noM,ev,sm,lastD};TD.cache={sd,key,res};return res}
+const tdCh=(a,b,fs)=>{for(const f of fs){const c=f(a,b);if(c)return c}return 0};
+const tdCs=(a,b)=>String(a).localeCompare(String(b),'es',{sensitivity:'base'});
+// Aplica filtros y orden. Lo usan la pantalla y la descarga.
+function tdData(sd,R){
+  const {idx}=selIdx(sd),is=new Set(idx),q=TD.q.trim(),code=q&&isCode(q),tk=q&&!code?q.split(/\s+/).map(norm):[];
+  const rows=R.rows.filter(r=>is.has(r.i)&&(!DS.T||r.t===DS.T)&&!TD.xc.has(tdPu(r.p))&&(!q||(code?codeHit(r.p,q):tk.every(t=>r.p.k.includes(t)))));
+  const m=new Map();rows.forEach(r=>{let e=m.get(r.pi);if(!e){e={p:r.p,pi:r.pi,t:personT(r.p,sd),n:0,min:0,d:[]};m.set(r.pi,e)}e.n++;e.min+=r.tard;e.d.push(r)});
+  const per=[...m.values()],od=TD.so.D,op=TD.so.P,dd=od.d,pd=op.d,nm=r=>r.p.n;
+  const FD={min:[(a,b)=>(a.tard-b.tard)*dd,(a,b)=>tdCs(a.f,b.f),(a,b)=>tdCs(nm(a),nm(b))],
+    f:[(a,b)=>tdCs(a.f,b.f)*dd,(a,b)=>tdCs(nm(a),nm(b))],
+    puesto:[(a,b)=>tdCs(tdPu(a.p),tdPu(b.p))*dd,(a,b)=>b.tard-a.tard,(a,b)=>tdCs(nm(a),nm(b)),(a,b)=>tdCs(a.f,b.f)],
+    nombre:[(a,b)=>tdCs(nm(a),nm(b))*dd,(a,b)=>tdCs(a.f,b.f)],
+    prog:[(a,b)=>tdCs(a.c.st,b.c.st)*dd,(a,b)=>b.tard-a.tard,(a,b)=>tdCs(nm(a),nm(b))]};
+  const FP={min:[(a,b)=>(a.min-b.min)*pd,(a,b)=>tdCs(a.p.n,b.p.n)],
+    n:[(a,b)=>(a.n-b.n)*pd,(a,b)=>b.min-a.min,(a,b)=>tdCs(a.p.n,b.p.n)],
+    prom:[(a,b)=>(a.min/a.n-b.min/b.n)*pd,(a,b)=>tdCs(a.p.n,b.p.n)],
+    puesto:[(a,b)=>tdCs(tdPu(a.p),tdPu(b.p))*pd,(a,b)=>b.min-a.min,(a,b)=>tdCs(a.p.n,b.p.n)],
+    nombre:[(a,b)=>tdCs(a.p.n,b.p.n)*pd]};
+  rows.sort((a,b)=>tdCh(a,b,FD[od.k]||FD.min));per.sort((a,b)=>tdCh(a,b,FP[op.k]||FP.min));
+  per.forEach(e=>e.d.sort((a,b)=>tdCs(a.f,b.f)));
+  return {rows,per}}
+function tdCgS(){const n=TD.cg.length,x=TD.cg.filter(c=>TD.xc.has(c)).length,e=$('tdCgS');if(e)e.textContent=x?'Puesto: '+(n-x)+' de '+n+' seleccionados':'Puesto: todos'}
+function tardView(){
+  const el=$('atar');
+  if(!SEDES.length){el.innerHTML='<div class="empty">No hay datos cargados. Primero sube el tareo en «📁 Cargar datos».</div>';return}
+  if(DS.si>=SEDES.length)DS.si=0;
+  const sd=SEDES[DS.si],{wk,sel}=selIdx(sd),rec=tdGet(sd),was=$('tdCgD')&&$('tdCgD').open,pu={};
+  sd.people.forEach(p=>{const g=tdPu(p);pu[g]=(pu[g]||0)+1});
+  TD.cg=Object.keys(pu).sort(tdCs);TD.xc.forEach(c=>{if(!(c in pu))TD.xc.delete(c)});
+  const st=rec?`<span style="color:var(--VACt)">✔ ${rec.files.join(', ')} · ${nf(rec.n)} marcas</span>`:'Aún no hay marcación cargada para esta sede.';
+  el.innerHTML=ctlBar(sd,wk,sel,'<button class="btn" data-dt="1" style="margin-left:auto">⬇ Descargar tardanzas (Excel)</button>')+
+   `<div class="panel"><div class="lbl">Marcación del reloj · ${sd.name}</div>
+     <div class="row"><input type="file" id="tdFile" accept=".xlsx,.xls,.xlsm,.csv" multiple>${rec?'<button class="btn" data-tdclr="1">Quitar marcación</button>':''}</div>
+     <div class="sub" id="tdMsg" style="margin:6px 0 0">${st}</div>
+     <div class="sub" style="margin:4px 0 0">Sube el Excel del reloj (columnas Trabajador y Marca). La hora de ingreso y el puesto salen del tareo ya cargado. La marcación se guarda solo en este navegador y no se publica con el sistema.</div></div>`+
+   `<div class="row" style="margin-bottom:8px"><input type="search" id="tdQ" placeholder="Buscar por nombre o DNI" value="${tdE(TD.q)}">
+     <span class="lbl" style="margin:0">Tolerancia</span><input type="number" id="tdTol" min="0" max="120" value="${TD.tol}" style="width:80px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;min-height:38px"><span class="sub" style="margin:0">min</span></div>
+    <details id="tdCgD"${was?' open':''} style="margin-bottom:10px"><summary id="tdCgS">Puesto: todos</summary><div class="row" style="margin-top:8px"><button class="chip" data-cgall="1">Marcar todos</button><button class="chip" data-cgall="0">Quitar todos</button>${TD.cg.map((c,i)=>`<label style="display:inline-flex;gap:4px;align-items:center;font-size:13px;margin-right:10px"><input type="checkbox" data-cg="${i}"${TD.xc.has(c)?'':' checked'}> ${tdE(c)} (${pu[c]})</label>`).join('')}</div></details>
+    <div id="tdRes"></div>`;
+  tdCgS();tdRes()}
+function tdRes(){
+  const el=$('tdRes');if(!el)return;
+  const sd=SEDES[DS.si],R=tdCompute(sd);
+  if(!R){el.innerHTML='<div class="empty">Sube la marcación (reloj) de esta sede para calcular las tardanzas.</div>';return}
+  const V=tdData(sd,R),{wk,sel,idx}=selIdx(sd),T=V.rows.length,mins=V.rows.reduce((a,r)=>a+r.tard,0),bt={T1:0,T2:0,T3:0};
+  V.rows.forEach(r=>{if(bt[r.t]!==undefined)bt[r.t]++});
+  const ev=idx.reduce((a,i)=>a+R.ev[i],0),sm=idx.reduce((a,i)=>a+R.sm[i],0),dl=R.lastD.split('-').reverse().join('/');
+  const per=wk.filter((_,k)=>sel[k]).map(([a])=>'Sem '+weekNo(sd.days[a].d)).join(', ');
+  const o=TD.so[TD.view],th=(k,l,al)=>`<th class="so${o.k===k?' on':''}" data-sort="${k}"${al?` style="text-align:${al}"`:''}>${l}${o.k===k?`<span class="ar">${o.d>0?'▲':'▼'}</span>`:''}</th>`;
+  const tog=`<div class="row" style="margin:10px 0 8px"><button class="chip${TD.view==='D'?' on':''}" data-tv="D">Detalle por día</button><button class="chip${TD.view==='P'?' on':''}" data-tv="P">Por persona</button><span class="sub" style="margin:0 0 0 6px">Clic en un encabezado para ordenar.</span></div>`;
+  let tb;
+  if(TD.view==='D'){
+    tb=`<div class="scroll"><table class="tt"><thead><tr><th style="text-align:right">N°</th>${th('f','Fecha')}${th('puesto','Puesto')}${th('nombre','Nombres y apellidos')}${th('prog','Ingreso programado')}<th>Marcó</th>${th('min','Minutos','right')}</tr></thead><tbody>${
+      V.rows.map((r,k)=>`<tr><td style="text-align:right;color:var(--mut)">${k+1}</td><td style="white-space:nowrap">${dlab2(sd,r.i)}</td><td>${tdE(tdPu(r.p))}</td><td>${r.p.n} ${tbd(r.t)}</td><td>${r.c.st}</td><td>${tdHM(r.m)}${tdD(r.m)!==r.f?' (+1)':''}</td><td class="n" style="color:var(--FEt)">${r.tard}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Sin tardanzas con estos filtros</td></tr>'}</tbody></table></div>`}
+  else{
+    tb=`<div class="scroll"><table class="tt"><thead><tr><th style="text-align:right">N°</th>${th('puesto','Puesto')}${th('nombre','Nombres y apellidos')}${th('n','Tardanzas','right')}${th('min','Minutos totales','right')}${th('prom','Promedio','right')}<th>Detalle por día</th></tr></thead><tbody>${
+      V.per.map((e,k)=>`<tr><td style="text-align:right;color:var(--mut)">${k+1}</td><td>${tdE(tdPu(e.p))}</td><td>${e.p.n} ${tbd(e.t)}</td><td class="n">${e.n}</td><td class="n" style="color:var(--FEt)">${e.min}</td><td class="n" style="font-weight:400">${Math.round(e.min/e.n)} min</td><td>${e.d.map(r=>`<span class="dch">${dlab2(sd,r.i)} · +${r.tard} min</span>`).join('')}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Sin tardanzas con estos filtros</td></tr>'}</tbody></table></div>`}
+  el.innerHTML=kpiH([['Tardanzas',nf(T),'#f0a62b'],['Minutos de tardanza',nf(mins),'#ed3237'],['Promedio',(T?Math.round(mins/T):0)+' min','#0f62ac'],['Personas con tardanza',V.per.length,'#7b6ad8'],['Tardanzas T1',bt.T1,TCOL.T1],['Tardanzas T2',bt.T2,TCOL.T2],['Tardanzas T3',bt.T3,TCOL.T3]])+
+   `<div class="sub" style="margin:0 0 4px">${sd.name} · ${per} · tolerancia ${TD.tol} min · ${nf(ev)} ingresos evaluados${sm?' · '+nf(sm)+' días programados sin marca de ingreso (no se evalúan)':''} · marcas hasta el ${dl}</div>`+tog+tb+
+   (R.noM.length?`<details><summary>Marcaciones sin emparejar con el tareo (${R.noM.length})</summary><div class="sub" style="margin-top:6px">${R.noM.map(tdE).join(' · ')}</div></details>`:'')+
+   `<div class="sub" style="margin-top:10px">Tardanza = minutos entre la hora de ingreso programada en el tareo y la primera marca del reloj (se buscan marcas desde 6 h antes hasta 5 h después), descontando la tolerancia. Solo se evalúan los días con turno de trabajo.</div>`}
+function tdInput(e){if(e.target.id==='tdQ'){TD.q=e.target.value;tdRes()}}
+function tdChange(e){const t=e.target;
+  if(t.id==='tdFile'){if(t.files&&t.files.length)tdLoad([...t.files]);return}
+  if(t.id==='tdTol'){TD.tol=Math.min(120,Math.max(0,Math.round(+t.value||0)));t.value=TD.tol;tdRes();return}
+  if(t.dataset&&t.dataset.cg!==undefined){const c=TD.cg[+t.dataset.cg];t.checked?TD.xc.delete(c):TD.xc.add(c);tdCgS();tdRes()}}
+function tdClick(e){
+  const th=e.target.closest('th[data-sort]');
+  if(th){const o=TD.so[TD.view],k=th.dataset.sort;if(o.k===k)o.d=-o.d;else{o.k=k;o.d=(k==='min'||k==='n'||k==='prom')?-1:1}tdRes();return}
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.tv){TD.view=b.dataset.tv;tdRes();return}
+  if(b.dataset.cgall!==undefined){const all=b.dataset.cgall==='1';TD.xc=all?new Set():new Set(TD.cg);$('atar').querySelectorAll('input[data-cg]').forEach(i=>i.checked=all);tdCgS();tdRes();return}
+  if(b.dataset.tdclr){if(confirm('¿Quitar la marcación cargada de esta sede?')){const sd=SEDES[DS.si];delete TDM[sd.name];TD.cache=null;tdSave(sd.name);tardView()}return}
+  if(b.dataset.s!==undefined)TD.xc=new Set();
+  adminClick(e)}
+function tdDownload(){
+  const sd=SEDES[DS.si],R=tdCompute(sd);
+  if(!R){alert('Primero sube la marcación (reloj) de esta sede.');return}
+  const V=tdData(sd,R),fdx=f=>f.split('-').reverse().join('/'),dw=i=>{const w=sd.days[i].w;return DOW[w]||w},{wk,sel}=selIdx(sd);
+  const A=[['N°','Día','Fecha','Puesto','Nombres y apellidos','Turno','Ingreso programado','Marcó ingreso','Minutos de tardanza']].concat(V.rows.map((r,k)=>[k+1,dw(r.i),fdx(r.f),r.p.g||'',r.p.n,r.t,r.c.st,tdHM(r.m)+(tdD(r.m)!==r.f?' (+1)':''),r.tard]));
+  const B=[['N°','Puesto','Nombres y apellidos','Turno','Tardanzas','Minutos totales','Promedio (min)']].concat(V.per.map((e,k)=>[k+1,e.p.g||'',e.p.n,e.t,e.n,e.min,Math.round(e.min/e.n)]));
+  const wb=XLSX.utils.book_new(),add=(n,a,w)=>{const s=XLSX.utils.aoa_to_sheet(a);s['!cols']=w.map(x=>({wch:x}));s['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:a.length-1,c:a[0].length-1}})};XLSX.utils.book_append_sheet(wb,s,n)};
+  add('Tardanzas',A,[5,6,11,30,36,7,18,14,18]);add('Por persona',B,[5,30,36,7,10,14,14]);
+  const pr=wk.filter((_,k)=>sel[k]).map(([a])=>'Sem '+weekNo(sd.days[a].d)).join(', ');
+  XLSX.writeFile(wb,'Tardanzas_'+sd.name.replace(/[^\wÁÉÍÓÚáéíóúñÑ]+/g,'_').replace(/^_|_$/g,'')+'_'+pr.replace(/[^\w]+/g,'_')+(DS.T?'_'+DS.T:'')+'.xlsx')}
+
 
 setup();
 </script></body></html>
