@@ -903,7 +903,20 @@ async function dlHHEE(){
   if(!sd.people.some(hasHrs))setTimeout(()=>alert('Esta sede no tiene horas cargadas (falta la hoja DETALLE). Solo se contaron DL/FEL a '+HORAS_EXTRA_DIA+' h.'),300)}
 
 /* ===== Tardanzas (administrador): marcación del reloj + horario de ingreso del tareo ===== */
-const TD={view:'D',so:{D:{k:'min',d:-1},P:{k:'min',d:-1}},q:'',tol:0,xc:new Set(),cg:[],cache:null},TDM={};
+const TD={view:'D',so:{D:{k:'min',d:-1},P:{k:'min',d:-1}},q:'',tol:0,t1:'07:00',t2:'23:00',t3:'07:00',xc:new Set(),cg:[],cache:null},TDM={};
+/* Ingreso programado real. En el tareo, el HH:MM del código (08:00-A, 12:00N…) es la DURACIÓN del turno en horas, no la hora de ingreso.
+   T1 (día) = ingresa a la hora T1 · T2 (1.00-N) = termina a la hora T2 · T3 (noche) = termina a la hora T3 (del día siguiente). Ingreso = fin − duración.
+   Excepciones por persona: [apellidos y nombre en minúscula, hora de ingreso]. */
+const TD_INI=[['medina salinas, hugo','14:00']];
+const tdMin=s=>{const x=String(s).match(/^(\d{1,2}):(\d{2})/);return x?+x[1]*60+ +x[2]:0};
+function tdSched(c,p){
+  const m=String(c.st||'').match(/^(\d{1,2}):(\d{2})$/);if(!m)return null;
+  const D=+m[1]+(+m[2])/60;if(!(D>0))return null;
+  const k=norm(p.n),ov=TD_INI.find(([n])=>k.startsWith(n));let st;
+  if(ov)st=tdMin(ov[1]);
+  else{const t=tOf(c,p);st=t==='T2'?tdMin(TD.t2)-D*60:t==='T3'?tdMin(TD.t3)+1440-D*60:tdMin(TD.t1)}
+  if(st<0||st>=1440)return null;
+  return {D,st:Math.round(st)}}
 const tdE=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const tdNz=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z ,]/g,' ').replace(/ +/g,' ').trim();
 const tdT=(d,h)=>{const[y,m,dd]=d.split('-').map(Number),[a,b]=h.split(':').map(Number);return Date.UTC(y,m-1,dd,a,b)/6e4};
@@ -950,7 +963,7 @@ function tdMatch(name,IX){
 // Calcula todas las tardanzas de la sede (todos los días); los filtros se aplican después.
 function tdCompute(sd){
   const rec=tdGet(sd);if(!rec)return null;
-  const key=sd.name+'|'+TD.tol+'|'+rec.ver;if(TD.cache&&TD.cache.sd===sd&&TD.cache.key===key)return TD.cache.res;
+  const key=sd.name+'|'+TD.tol+'|'+TD.t1+'|'+TD.t2+'|'+TD.t3+'|'+rec.ver;if(TD.cache&&TD.cache.sd===sd&&TD.cache.key===key)return TD.cache.res;
   const IX=tdIndex(sd),M=new Map(),noM=[];let last=-1e12;
   Object.keys(rec.by).forEach(nm=>{const ts=rec.by[nm];ts.forEach(t=>{if(t>last)last=t});const o=tdMatch(nm,IX);
     if(!o){noM.push(nm);return}const a=M.get(o.pi)||[];ts.forEach(t=>a.push(t));M.set(o.pi,a)});
@@ -958,17 +971,17 @@ function tdCompute(sd){
   sd.people.forEach((p,pi)=>{
     const mk=(M.get(pi)||[]).sort((a,b)=>a-b).filter((t,j,a)=>j===0||t-a[j-1]>2),used=new Set();
     sd.days.forEach((dy,i)=>{
-      const c=sd.codes[p.s[i]];if(!c||c.g!=='work'||!/^\d{1,2}:\d{2}$/.test(c.st||''))return;
+      const c=sd.codes[p.s[i]];if(!c||c.g!=='work')return;const sc=tdSched(c,p);if(!sc)return;
       if(dy.d>lastD)return;
-      const S=tdT(dy.d,c.st);let en=-1;
+      const S=tdT(dy.d,'00:00')+sc.st;let en=-1;
       for(let j=0;j<mk.length;j++){if(!used.has(j)&&mk[j]>=S-360&&mk[j]<=S+300){en=j;break}}
       if(en<0){sm[i]++;return}
       used.add(en);ev[i]++;
-      const hrs=(p.h&&p.h[i])||8,E=S+hrs*60,lo=mk[en]+90,hi=mk[en]+Math.max(840,hrs*60+420);
+      const hrs=sc.D,E=S+hrs*60,lo=mk[en]+90,hi=mk[en]+Math.max(840,hrs*60+420);
       let ex=-1,bd=1e9;for(let j=0;j<mk.length;j++){if(!used.has(j)&&mk[j]>=lo&&mk[j]<=hi){const d=Math.abs(mk[j]-E);if(d<bd){bd=d;ex=j}}}
       if(ex>=0)used.add(ex);
       const d=mk[en]-S;
-      if(d>TD.tol)rows.push({p,pi,i,f:dy.d,c,t:tOf(c,p),S,m:mk[en],tard:d})})});
+      if(d>TD.tol)rows.push({p,pi,i,f:dy.d,c,t:tOf(c,p),S,st:tdHM(S),m:mk[en],tard:d})})});
   const res={rows,noM,ev,sm,lastD};TD.cache={sd,key,res};return res}
 const tdCh=(a,b,fs)=>{for(const f of fs){const c=f(a,b);if(c)return c}return 0};
 const tdCs=(a,b)=>String(a).localeCompare(String(b),'es',{sensitivity:'base'});
@@ -982,7 +995,7 @@ function tdData(sd,R){
     f:[(a,b)=>tdCs(a.f,b.f)*dd,(a,b)=>tdCs(nm(a),nm(b))],
     puesto:[(a,b)=>tdCs(tdPu(a.p),tdPu(b.p))*dd,(a,b)=>b.tard-a.tard,(a,b)=>tdCs(nm(a),nm(b)),(a,b)=>tdCs(a.f,b.f)],
     nombre:[(a,b)=>tdCs(nm(a),nm(b))*dd,(a,b)=>tdCs(a.f,b.f)],
-    prog:[(a,b)=>tdCs(a.c.st,b.c.st)*dd,(a,b)=>b.tard-a.tard,(a,b)=>tdCs(nm(a),nm(b))]};
+    prog:[(a,b)=>tdCs(a.st,b.st)*dd,(a,b)=>b.tard-a.tard,(a,b)=>tdCs(nm(a),nm(b))]};
   const FP={min:[(a,b)=>(a.min-b.min)*pd,(a,b)=>tdCs(a.p.n,b.p.n)],
     n:[(a,b)=>(a.n-b.n)*pd,(a,b)=>b.min-a.min,(a,b)=>tdCs(a.p.n,b.p.n)],
     prom:[(a,b)=>(a.min/a.n-b.min/b.n)*pd,(a,b)=>tdCs(a.p.n,b.p.n)],
@@ -1006,7 +1019,10 @@ function tardView(){
      <div class="sub" id="tdMsg" style="margin:6px 0 0">${st}</div>
      <div class="sub" style="margin:4px 0 0">Sube el Excel del reloj (columnas Trabajador y Marca). La hora de ingreso y el puesto salen del tareo ya cargado. La marcación se guarda solo en este navegador y no se publica con el sistema.</div></div>`+
    `<div class="row" style="margin-bottom:8px"><input type="search" id="tdQ" placeholder="Buscar por nombre o DNI" value="${tdE(TD.q)}">
-     <span class="lbl" style="margin:0">Tolerancia</span><input type="number" id="tdTol" min="0" max="120" value="${TD.tol}" style="width:80px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;min-height:38px"><span class="sub" style="margin:0">min</span></div>
+     <span class="lbl" style="margin:0">Tolerancia</span><input type="number" id="tdTol" min="0" max="120" value="${TD.tol}" style="width:80px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;min-height:38px"><span class="sub" style="margin:0">min</span>
+     <span class="lbl" style="margin:0 0 0 12px" title="Hora de ingreso de los turnos de día (08:00-A, 12:00-A…)">Ingreso T1</span><input type="time" id="tdT1" value="${TD.t1}" style="font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:6px 8px">
+     <span class="lbl" style="margin:0" title="Los turnos con (1.00-N) terminan a esta hora; el ingreso = fin − duración">Fin T2</span><input type="time" id="tdT2" value="${TD.t2}" style="font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:6px 8px">
+     <span class="lbl" style="margin:0" title="Los turnos de noche terminan a esta hora del día siguiente; el ingreso = fin − duración">Fin T3</span><input type="time" id="tdT3" value="${TD.t3}" style="font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:6px 8px"></div>
     <details id="tdCgD"${was?' open':''} style="margin-bottom:10px"><summary id="tdCgS">Puesto: todos</summary><div class="row" style="margin-top:8px"><button class="chip" data-cgall="1">Marcar todos</button><button class="chip" data-cgall="0">Quitar todos</button>${TD.cg.map((c,i)=>`<label style="display:inline-flex;gap:4px;align-items:center;font-size:13px;margin-right:10px"><input type="checkbox" data-cg="${i}"${TD.xc.has(c)?'':' checked'}> ${tdE(c)} (${pu[c]})</label>`).join('')}</div></details>
     <div id="tdRes"></div>`;
   tdCgS();tdRes()}
@@ -1023,17 +1039,18 @@ function tdRes(){
   let tb;
   if(TD.view==='D'){
     tb=`<div class="scroll"><table class="tt"><thead><tr><th style="text-align:right">N°</th>${th('f','Fecha')}${th('puesto','Puesto')}${th('nombre','Nombres y apellidos')}${th('prog','Ingreso programado')}<th>Marcó</th>${th('min','Minutos','right')}</tr></thead><tbody>${
-      V.rows.map((r,k)=>`<tr><td style="text-align:right;color:var(--mut)">${k+1}</td><td style="white-space:nowrap">${dlab2(sd,r.i)}</td><td>${tdE(tdPu(r.p))}</td><td>${r.p.n} ${tbd(r.t)}</td><td>${r.c.st}</td><td>${tdHM(r.m)}${tdD(r.m)!==r.f?' (+1)':''}</td><td class="n" style="color:var(--FEt)">${r.tard}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Sin tardanzas con estos filtros</td></tr>'}</tbody></table></div>`}
+      V.rows.map((r,k)=>`<tr><td style="text-align:right;color:var(--mut)">${k+1}</td><td style="white-space:nowrap">${dlab2(sd,r.i)}</td><td>${tdE(tdPu(r.p))}</td><td>${r.p.n} ${tbd(r.t)}</td><td>${r.st}</td><td>${tdHM(r.m)}${tdD(r.m)!==r.f?' (+1)':''}</td><td class="n" style="color:var(--FEt)">${r.tard}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Sin tardanzas con estos filtros</td></tr>'}</tbody></table></div>`}
   else{
     tb=`<div class="scroll"><table class="tt"><thead><tr><th style="text-align:right">N°</th>${th('puesto','Puesto')}${th('nombre','Nombres y apellidos')}${th('n','Tardanzas','right')}${th('min','Minutos totales','right')}${th('prom','Promedio','right')}<th>Detalle por día</th></tr></thead><tbody>${
       V.per.map((e,k)=>`<tr><td style="text-align:right;color:var(--mut)">${k+1}</td><td>${tdE(tdPu(e.p))}</td><td>${e.p.n} ${tbd(e.t)}</td><td class="n">${e.n}</td><td class="n" style="color:var(--FEt)">${e.min}</td><td class="n" style="font-weight:400">${Math.round(e.min/e.n)} min</td><td>${e.d.map(r=>`<span class="dch">${dlab2(sd,r.i)} · +${r.tard} min</span>`).join('')}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Sin tardanzas con estos filtros</td></tr>'}</tbody></table></div>`}
   el.innerHTML=kpiH([['Tardanzas',nf(T),'#f0a62b'],['Minutos de tardanza',nf(mins),'#ed3237'],['Promedio',(T?Math.round(mins/T):0)+' min','#0f62ac'],['Personas con tardanza',V.per.length,'#7b6ad8'],['Tardanzas T1',bt.T1,TCOL.T1],['Tardanzas T2',bt.T2,TCOL.T2],['Tardanzas T3',bt.T3,TCOL.T3]])+
    `<div class="sub" style="margin:0 0 4px">${sd.name} · ${per} · tolerancia ${TD.tol} min · ${nf(ev)} ingresos evaluados${sm?' · '+nf(sm)+' días programados sin marca de ingreso (no se evalúan)':''} · marcas hasta el ${dl}</div>`+tog+tb+
    (R.noM.length?`<details><summary>Marcaciones sin emparejar con el tareo (${R.noM.length})</summary><div class="sub" style="margin-top:6px">${R.noM.map(tdE).join(' · ')}</div></details>`:'')+
-   `<div class="sub" style="margin-top:10px">Tardanza = minutos entre la hora de ingreso programada en el tareo y la primera marca del reloj (se buscan marcas desde 6 h antes hasta 5 h después), descontando la tolerancia. Solo se evalúan los días con turno de trabajo.</div>`}
+   `<div class="sub" style="margin-top:10px">Tardanza = minutos entre la hora de ingreso programada y la primera marca del reloj (se buscan marcas desde 6 h antes hasta 5 h después), descontando la tolerancia. El código del tareo (08:00, 12:00…) indica la duración del turno: el ingreso sale de T1 (día), o de restar la duración al fin de T2 / T3 (ver los campos de arriba). Solo se evalúan los días con turno de trabajo.</div>`}
 function tdInput(e){if(e.target.id==='tdQ'){TD.q=e.target.value;tdRes()}}
 function tdChange(e){const t=e.target;
   if(t.id==='tdFile'){if(t.files&&t.files.length)tdLoad([...t.files]);return}
+  if(t.id==='tdT1'||t.id==='tdT2'||t.id==='tdT3'){if(/^\d{2}:\d{2}$/.test(t.value)){TD['t'+t.id.slice(-1)]=t.value;tdRes()}return}
   if(t.id==='tdTol'){TD.tol=Math.min(120,Math.max(0,Math.round(+t.value||0)));t.value=TD.tol;tdRes();return}
   if(t.dataset&&t.dataset.cg!==undefined){const c=TD.cg[+t.dataset.cg];t.checked?TD.xc.delete(c):TD.xc.add(c);tdCgS();tdRes()}}
 function tdClick(e){
@@ -1049,7 +1066,7 @@ function tdDownload(){
   const sd=SEDES[DS.si],R=tdCompute(sd);
   if(!R){alert('Primero sube la marcación (reloj) de esta sede.');return}
   const V=tdData(sd,R),fdx=f=>f.split('-').reverse().join('/'),dw=i=>{const w=sd.days[i].w;return DOW[w]||w},{wk,sel}=selIdx(sd);
-  const A=[['N°','Día','Fecha','Puesto','Nombres y apellidos','Turno','Ingreso programado','Marcó ingreso','Minutos de tardanza']].concat(V.rows.map((r,k)=>[k+1,dw(r.i),fdx(r.f),r.p.g||'',r.p.n,r.t,r.c.st,tdHM(r.m)+(tdD(r.m)!==r.f?' (+1)':''),r.tard]));
+  const A=[['N°','Día','Fecha','Puesto','Nombres y apellidos','Turno','Ingreso programado','Marcó ingreso','Minutos de tardanza']].concat(V.rows.map((r,k)=>[k+1,dw(r.i),fdx(r.f),r.p.g||'',r.p.n,r.t,r.st,tdHM(r.m)+(tdD(r.m)!==r.f?' (+1)':''),r.tard]));
   const B=[['N°','Puesto','Nombres y apellidos','Turno','Tardanzas','Minutos totales','Promedio (min)']].concat(V.per.map((e,k)=>[k+1,e.p.g||'',e.p.n,e.t,e.n,e.min,Math.round(e.min/e.n)]));
   const wb=XLSX.utils.book_new(),add=(n,a,w)=>{const s=XLSX.utils.aoa_to_sheet(a);s['!cols']=w.map(x=>({wch:x}));s['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:a.length-1,c:a[0].length-1}})};XLSX.utils.book_append_sheet(wb,s,n)};
   add('Tardanzas',A,[5,6,11,30,36,7,18,14,18]);add('Por persona',B,[5,30,36,7,10,14,14]);
