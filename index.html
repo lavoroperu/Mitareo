@@ -182,6 +182,7 @@ table.cmp{width:100%;font-size:13px}table.cmp th,table.cmp td{padding:6px 8px;te
     <div class="sub">Escribe tu nombre, apellido o DNI para ver tu horario.</div>
     <input type="search" id="hq" class="bigin" placeholder="Ej.: Acosta o tu DNI" autocomplete="off">
     <div class="res" id="res"></div>
+    <div id="visit" class="sub" style="text-align:center;margin:14px 0 0;font-weight:600" hidden></div>
   </div>
   <div id="me" hidden=""></div>
   <div class="empty" id="noData" hidden="">Aún no hay datos cargados. Entra como administrador → «Cargar datos» y sube un Excel.</div>
@@ -419,6 +420,30 @@ function openObs(pi,i){
   $('obsOv').classList.add('show')}
 function closeObs(){$('obsOv').classList.remove('show')}
 
+const CNT_NS='lavoro-mitareo',CNT_KEY='validaciones';
+function P_name(si,pi){try{return SEDES[si].people[pi].n}catch(e){return ''}}
+function cntHit(sede,name){
+  try{
+    const d=new Date(),day=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(),k=sede+'|'+name+'|'+day;
+    const seen=JSON.parse(localStorage.getItem('tareo_cnt_seen')||'[]');
+    if(seen.includes(k))return;
+    seen.push(k);localStorage.setItem('tareo_cnt_seen',JSON.stringify(seen.slice(-200)));
+    localStorage.setItem('tareo_cnt_local',(+localStorage.getItem('tareo_cnt_local')||0)+1);
+    fetch('https://api.counterapi.dev/v1/'+CNT_NS+'/'+CNT_KEY+'/up',{mode:'cors'}).catch(()=>{});
+  }catch(e){}
+}
+async function cntGet(){
+  let loc=0;try{loc=+localStorage.getItem('tareo_cnt_local')||0}catch(e){}
+  try{const r=await fetch('https://api.counterapi.dev/v1/'+CNT_NS+'/'+CNT_KEY+'/');const j=await r.json();if(typeof j.count==='number')return{n:j.count,ext:true,loc}}catch(e){}
+  return{n:loc,ext:false,loc};
+}
+(function(){
+  const el=document.getElementById('visit');if(!el)return;
+  const put=n=>{el.textContent='👋 Eres la persona N° '+Number(n).toLocaleString('es-PE')+' que visita esta página';el.hidden=false};
+  let n=0;try{n=+localStorage.getItem('tareo_visit_n')||0}catch(e){}
+  if(n){put(n);return}
+  fetch('https://api.counterapi.dev/v1/'+CNT_NS+'/visitas/up').then(r=>r.json()).then(j=>{if(typeof j.count==='number'){put(j.count);try{localStorage.setItem('tareo_visit_n',j.count)}catch(e){}}}).catch(()=>{});
+})();
 function showMe(si,pi,keep){
   useSede(si);const p=P[pi],cnt={};
   try{localStorage.setItem('tareo_me',JSON.stringify({s:D.name,p:p.n}))}catch(e){}
@@ -432,9 +457,9 @@ function showMe(si,pi,keep){
   const sum=GR.filter(([k])=>cnt[k]).map(([k,l])=>`<span class="g-${k==='work'?'asis':k}">${k==='work'?'Días trabajados':l}: ${cnt[k]}</span>`).join('');
   const t=new Date(),iso=`${t.getFullYear()}-${p2(t.getMonth()+1)}-${p2(t.getDate())}`;
   const wk=[];let st=0;for(let k=1;k<=nD;k++){if(k===nD||D.days[k].w==='LUNES'){wk.push([st,k-1]);st=k}}
-  const cards=wk.map(([a,b])=>{let r='';for(let i=a;i<=b;i++){const c=C[p.s[i]];r+=`<div class="d tapd" data-p="${pi}" data-i="${i}">${dlab(i)}${D.days[i].d===iso?' · hoy':''}</div><div class="v tap ${c.g==='work'?'g-asis':cls(c)}" data-p="${pi}" data-i="${i}"><span>${c.g==='work'?'✔ ':''}${labelEmp(c)}${c.g==='work'?`<span class="tb ${tOf(c,p)}">${tOf(c,p)}</span>`:''}${exH(p,i,c)>0?`<span class="tb ex">+${fh(exH(p,i,c))} h extra</span>`:''}</span><span class="ob">✎ Observar</span></div>`}
+  const cards=wk.slice().reverse().map(([a,b])=>{let r='';for(let i=b;i>=a;i--){const c=C[p.s[i]];r+=`<div class="d tapd" data-p="${pi}" data-i="${i}">${dlab(i)}${D.days[i].d===iso?' · hoy':''}</div><div class="v tap ${c.g==='work'?'g-asis':cls(c)}" data-p="${pi}" data-i="${i}"><span>${c.g==='work'?'✔ ':''}${labelEmp(c)}${c.g==='work'?`<span class="tb ${tOf(c,p)}">${tOf(c,p)}</span>`:''}${exH(p,i,c)>0?`<span class="tb ex">+${fh(exH(p,i,c))} h extra</span>`:''}</span><span class="ob">✎ Observar</span></div>`}
     const x=dp(a),y=dp(b);return `<div class="card" style="margin-bottom:10px"><h3>${x.d}${x.m!==y.m?' '+x.m:''} – ${y.d} ${y.m}</h3><div class="dl">${r}</div></div>`}).join('');
-  $('me').innerHTML=`<h1>${p.n}</h1><div class="sub"><b>Cargo:</b> ${p.g||'—'} · <b>Fecha de ingreso:</b> ${p.i?fdate(p.i):'—'}</div><div class="sum">${sum}</div>${xbox}<div class="warn"><b>¿Algo no cuadra con tu tareo?</b>Toca el día y llena tu observación; podrás enviarla por WhatsApp. Si no figura la marcación en el BIOMÉTRICO no se procederá a la corrección. Recuerda marcar INGRESO y SALIDA (2 marcaciones por día).</div><details class="panel" open><summary><strong>📖 Leyenda</strong></summary>${legendEmp()}</details>${cards}<button class="btn" id="chg">Buscar a otra persona</button>`;
+  $('me').innerHTML=`<button class="btn" id="chg" style="margin:0 0 12px">Buscar a otra persona</button><h1>${p.n}</h1><div class="sub"><b>Cargo:</b> ${p.g||'—'} · <b>Fecha de ingreso:</b> ${p.i?fdate(p.i):'—'}</div><div class="sum">${sum}</div>${xbox}<div class="warn"><b>¿Algo no cuadra con tu tareo?</b>Toca el día y llena tu observación; podrás enviarla por WhatsApp. Si no figura la marcación en el BIOMÉTRICO no se procederá a la corrección. Recuerda marcar INGRESO y SALIDA (2 marcaciones por día).</div><details class="panel" open><summary><strong>📖 Leyenda</strong></summary>${legendEmp()}</details>${cards}`;
   $('me').onclick=e=>{const t=e.target.closest('[data-i][data-p]');if(t)openObs(+t.dataset.p,+t.dataset.i)};
   $('find').hidden=true;$('me').hidden=false;
   $('chg').onclick=()=>{$('me').hidden=true;$('find').hidden=false;$('hq').value='';$('res').innerHTML='';try{localStorage.removeItem('tareo_me');sessionStorage.removeItem('tareo_scroll')}catch(e){}window.scrollTo(0,0)};
@@ -608,7 +633,7 @@ function dash(){
     if(f)fal.push({p,f,fd});if(m)med.push({p,m,md})});
   fal.sort((a,b)=>b.f-a.f||a.p.n.localeCompare(b.p.n));med.sort((a,b)=>b.m-a.m);
   const W=tot.work||0,F=tot.F||0,rate=W+F?(100*F/(W+F)).toFixed(1):'0.0';
-  const kp=[['Personas',sd.people.length,'#0f62ac'],['Días trabajados',nf(W),'#0f62ac'],['Faltas',nf(F),'#ed3237'],['Tasa de faltas',rate+'%','#ed3237'],['Personas con faltas',fal.length,'#f0a62b'],['Descanso médico / licencias (días)',nf((tot.DM||0)+(tot.LIC||0)),'#d6366f'],['Vacaciones (días)',nf(tot.VAC||0),'#00a859']];
+  const kp=[['Personas',sd.people.length,'#0f62ac'],['Días trabajados',nf(W),'#0f62ac'],['Faltas',nf(F),'#ed3237'],['Tasa de faltas',rate+'%','#ed3237'],['Personas con faltas',fal.length,'#f0a62b'],['Descanso médico / licencias (días)',nf((tot.DM||0)+(tot.LIC||0)),'#d6366f'],['Vacaciones (días)',nf(tot.VAC||0),'#00a859'],['Personas que validaron sus datos','…','#7a4fd1']];
   const GN=Object.fromEntries(GR),ds=[['work','Trabaja'],['D','Descanso'],['FE','Feriado'],['VAC','Vacaciones'],['DM','Desc. médico'],['F','Falta'],['LIC','Licencia / Susp.'],['O','Otro']].map(([k,l])=>[l,tot[k]||0,GC[k]]);
   const dT=ds.reduce((a,e)=>a+e[1],0)||1;
     const ctl=(SEDES.length>1?`<div class="row" style="margin-bottom:8px">${SEDES.map((x,k)=>`<button class="chip${k===DS.si?' on':''}" data-s="${k}">${x.name}</button>`).join('')}</div>`:'')+
@@ -630,7 +655,8 @@ function dash(){
   <div class="cg">
     <div class="card"><h3>Personas con faltas <small>(${fal.length})</small></h3><div class="fl">${fal.map(x=>`<div class="fp"><div><span>${x.p.n}</span><em>${x.f} ${x.f===1?'falta':'faltas'}</em></div><div>${x.fd.map(i=>`<span class="dch">${DOW[sd.days[i].w]||''} ${dd(i)}</span>`).join('')}</div></div>`).join('')||'<div class="empty">Nadie tiene faltas en este periodo</div>'}</div></div>
     <div class="card"><h3>Descanso médico y licencias <small>(${med.length} personas)</small></h3><div class="fl">${med.map(x=>`<div class="fp"><div><span>${x.p.n}</span><em style="background:var(--DM);color:var(--DMt)">${x.m} ${x.m===1?'día':'días'}</em></div><div>${x.md.map(i=>`<span class="dch">${dd(i)} · ${cc[x.p.s[i]].raw}</span>`).join('')}</div></div>`).join('')||'<div class="empty">Sin descansos médicos ni licencias</div>'}</div></div>
-  </div>${cmp}`}
+  </div>${cmp}`;
+  cntGet().then(r=>{const k=[...document.querySelectorAll('#adash .kpi')].find(e=>/validaron/.test(e.textContent));if(k){k.querySelector('b').textContent=nf(r.n);k.querySelector('span').textContent='Personas que validaron sus datos'+(r.ext?'':' (solo este dispositivo)')}})}
 function weeksOf(sd){const n=sd.days.length,w=[];let s=0;for(let k=1;k<=n;k++){if(k===n||sd.days[k].w==='LUNES'){w.push([s,k-1]);s=k}}return w}
 function weekNo(ds){const[y,m,d]=ds.split('-').map(Number),t=new Date(Date.UTC(y,m-1,d));t.setUTCDate(t.getUTCDate()-((t.getUTCDay()+6)%7)+3);const f=new Date(Date.UTC(t.getUTCFullYear(),0,4));return 1+Math.round(((t-f)/864e5-3+((f.getUTCDay()+6)%7))/7)}
 const xesc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -713,7 +739,7 @@ function setup(){
   $('legend').innerHTML=[['g-b8','08','Ingreso 08:00'],['g-b12','12','Ingreso 12:00'],['g-bx','14','Otro horario'],['g-D','D','Descanso'],['g-FE','FE','Feriado'],['g-VAC','VAC','Vacaciones'],['g-DM','DM','Desc. médico'],['g-F','F','Falta'],['g-LIC','LSG','Licencia / Susp.']].map(([c,t,l])=>`<span><b class="${c}">${t}</b>${l}</span>`).join('')+'<span>N, DL, FEL = códigos del Excel</span>';
   $('legend').insertAdjacentHTML('afterend','<details class="panel"><summary><strong>📖 Leyenda completa</strong></summary>'+legendHtml()+'</details>');
   $('hq').oninput=homeSearch;$('goTheme').onclick=()=>{const r=document.documentElement,d=r.dataset.theme==='dark';r.dataset.theme=d?'light':'dark';$('goTheme').textContent=d?'Modo oscuro':'Modo claro'};
-  $('res').onclick=e=>{const b=e.target.closest('button');if(b)showMe(+b.dataset.s,+b.dataset.p)};
+  $('res').onclick=e=>{const b=e.target.closest('button');if(b){cntHit(SEDES[+b.dataset.s]?SEDES[+b.dataset.s].name:'',P_name(+b.dataset.s,+b.dataset.p));showMe(+b.dataset.s,+b.dataset.p)}};
   $('goTeam').onclick=()=>{if(!SEDES.length)return;useSede(Math.min(SI,SEDES.length-1));show('team');render()};$('goAdmin').onclick=openAdmin;
   $('tBack').onclick=()=>show('home');$('aBack').onclick=()=>{ADM=false;show('home')};
   $('file').onchange=async e=>{
