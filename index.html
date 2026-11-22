@@ -454,12 +454,25 @@ function vbShow(n){const e=document.getElementById('vbn'),b=document.getElementB
   if(n)put(n);
   fetch('https://api.counterapi.dev/v1/'+CNT_NS+'/visitas/up').then(r=>r.json()).then(j=>{if(typeof j.count==='number'){vbShow(j.count);if(!n){put(j.count);try{localStorage.setItem('tareo_visit_n',j.count)}catch(e){}}}}).catch(()=>{});
 })();
+/* Periodos de pago (del 21 al 20) para la ficha del trabajador */
+const PER_DIA=21;let WPSEL='';
+function wperiods(){
+  const key=d=>{const [y,m,dd]=d.split('-').map(Number);return y*12+m-1-(dd>=PER_DIA?0:1)},r=[];let st=0;
+  for(let k=1;k<=nD;k++){if(k===nD||key(D.days[k].d)!==key(D.days[st].d)){r.push([st,k-1]);st=k}}
+  const t=new Date(),hoy=`${t.getFullYear()}-${p2(t.getMonth()+1)}-${p2(t.getDate())}`;
+  let sel=r.findIndex(([a,b])=>D.days[a].d<=hoy&&hoy<=D.days[b].d);if(sel<0)sel=r.length-1;
+  const w=r.findIndex(([a])=>D.days[a].d===WPSEL);if(w>=0)sel=w;
+  return {r,sel}}
+function perChips(PR){
+  if(PR.r.length<2)return '';
+  const f=i=>{const x=D.days[i].d.split('-');return x[2]+'/'+x[1]};
+  return '<div class="lbl">Periodo</div><div class="row" style="margin-bottom:10px">'+PR.r.map(([a,b],k)=>`<button class="chip${k===PR.sel?' on':''}" data-per="${D.days[a].d}">${f(a)} – ${f(b)}</button>`).join('')+'</div>'}
 function showMe(si,pi,keep){
-  useSede(si);const p=P[pi],cnt={};
+  useSede(si);const p=P[pi],cnt={},PR=wperiods(),[lo,hi]=PR.r[PR.sel];
   try{localStorage.setItem('tareo_me',JSON.stringify({s:D.name,p:p.n}))}catch(e){}
-  let nDL=0,nFEL=0;for(let i=0;i<nD;i++){const c0=C[p.s[i]],g=c0.g;cnt[g]=(cnt[g]||0)+1;if(c0.cat==='DL'&&g==='work')nDL++;if(c0.cat==='FEL'&&g==='work')nFEL++}
+  let nDL=0,nFEL=0;for(let i=lo;i<=hi;i++){const c0=C[p.s[i]],g=c0.g;cnt[g]=(cnt[g]||0)+1;if(c0.cat==='DL'&&g==='work')nDL++;if(c0.cat==='FEL'&&g==='work')nFEL++}
   let hEx=0,nDx=0,hFer=0;
-  for(let i=0;i<nD;i++){const c0=C[p.s[i]],x=exH(p,i,c0);if(x>0){hEx+=x;nDx++;if(isEx(c0))hFer+=x}}
+  for(let i=lo;i<=hi;i++){const c0=C[p.s[i]],x=exH(p,i,c0);if(x>0){hEx+=x;nDx++;if(isEx(c0))hFer+=x}}
   const xdet=hasHrs(p)
     ?`${nDx} ${nDx===1?'día':'días'} con horas extra · jornada normal ${HORAS_EXTRA_DIA} h por día`+(nDL+nFEL?` · incluye ${fh(hFer)} h de descanso/feriado laborado (${nDL} DL, ${nFEL} FEL)`:'')
     :`${nDL} ${nDL===1?'día de descanso laborado':'días de descanso laborado'} (DL) · ${nFEL} ${nFEL===1?'feriado laborado':'feriados laborados'} (FEL) · ${HORAS_EXTRA_DIA} h por día`;
@@ -467,10 +480,10 @@ function showMe(si,pi,keep){
   const sum=GR.filter(([k])=>cnt[k]).map(([k,l])=>`<span class="g-${k==='work'?'asis':k}">${k==='work'?'Días trabajados':l}: ${cnt[k]}</span>`).join('');
   const t=new Date(),iso=`${t.getFullYear()}-${p2(t.getMonth()+1)}-${p2(t.getDate())}`;
   const wk=[];let st=0;for(let k=1;k<=nD;k++){if(k===nD||D.days[k].w==='LUNES'){wk.push([st,k-1]);st=k}}
-  const cards=wk.slice().reverse().map(([a,b])=>{let r='';for(let i=b;i>=a;i--){const c=C[p.s[i]];r+=`<div class="d tapd" data-p="${pi}" data-i="${i}">${dlab(i)}${D.days[i].d===iso?' · hoy':''}</div><div class="v tap ${c.g==='work'?'g-asis':cls(c)}" data-p="${pi}" data-i="${i}"><span>${c.g==='work'?'✔ ':''}${labelEmp(c)}${c.g==='work'?`<span class="tb ${tOf(c,p)}">${tOf(c,p)}</span>`:''}${exH(p,i,c)>0?`<span class="tb ex">+${fh(exH(p,i,c))} h extra</span>`:''}</span><span class="ob">✎ Observar</span></div>`}
+  const cards=wk.filter(([a,b])=>b>=lo&&a<=hi).reverse().map(([a0,b0])=>{const a=Math.max(a0,lo),b=Math.min(b0,hi);let r='';for(let i=b;i>=a;i--){const c=C[p.s[i]];r+=`<div class="d tapd" data-p="${pi}" data-i="${i}">${dlab(i)}${D.days[i].d===iso?' · hoy':''}</div><div class="v tap ${c.g==='work'?'g-asis':cls(c)}" data-p="${pi}" data-i="${i}"><span>${c.g==='work'?'✔ ':''}${labelEmp(c)}${c.g==='work'?`<span class="tb ${tOf(c,p)}">${tOf(c,p)}</span>`:''}${exH(p,i,c)>0?`<span class="tb ex">+${fh(exH(p,i,c))} h extra</span>`:''}</span><span class="ob">✎ Observar</span></div>`}
     const x=dp(a),y=dp(b);return `<div class="card" style="margin-bottom:10px"><h3>Semana ${weekNo(D.days[a].d)} · ${x.d}${x.m!==y.m?' '+x.m:''} – ${y.d} ${y.m}</h3><div class="dl">${r}</div></div>`}).join('');
-  $('me').innerHTML=`<button class="btn" id="chg" style="margin:0 0 12px">Inicio</button><h1>${p.n}</h1><div class="sub"><b>Cargo:</b> ${p.g||'—'} · <b>Fecha de ingreso:</b> ${p.i?fdate(p.i):'—'}</div><div class="sum">${sum}</div>${xbox}<div class="warn"><b>¿Algo no cuadra con tu tareo?</b>Toca el día y llena tu observación; podrás enviarla por WhatsApp. Si no figura la marcación en el BIOMÉTRICO no se procederá a la corrección. Recuerda marcar INGRESO y SALIDA (2 marcaciones por día).</div><details class="panel" open><summary><strong>📖 Leyenda</strong></summary>${legendEmp()}</details>${cards}`;
-  $('me').onclick=e=>{const t=e.target.closest('[data-i][data-p]');if(t)openObs(+t.dataset.p,+t.dataset.i)};
+  $('me').innerHTML=`<button class="btn" id="chg" style="margin:0 0 12px">Inicio</button><h1>${p.n}</h1><div class="sub"><b>Cargo:</b> ${p.g||'—'} · <b>Fecha de ingreso:</b> ${p.i?fdate(p.i):'—'}</div>${perChips(PR)}<div class="sum">${sum}</div>${xbox}<div class="warn"><b>¿Algo no cuadra con tu tareo?</b>Toca el día y llena tu observación; podrás enviarla por WhatsApp. Si no figura la marcación en el BIOMÉTRICO no se procederá a la corrección. Recuerda marcar INGRESO y SALIDA (2 marcaciones por día).</div><details class="panel" open><summary><strong>📖 Leyenda</strong></summary>${legendEmp()}</details>${cards}`;
+  $('me').onclick=e=>{const b=e.target.closest('[data-per]');if(b){WPSEL=b.dataset.per;try{sessionStorage.setItem('tareo_scroll',String(window.scrollY))}catch(x){}showMe(si,pi,true);return}const t=e.target.closest('[data-i][data-p]');if(t)openObs(+t.dataset.p,+t.dataset.i)};
   $('find').hidden=true;$('me').hidden=false;
   $('chg').onclick=goHome;
   if(keep){let y=0;try{y=+(sessionStorage.getItem('tareo_scroll')||0)}catch(e){}requestAnimationFrame(()=>window.scrollTo(0,y))}

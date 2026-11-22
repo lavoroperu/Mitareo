@@ -11,6 +11,7 @@
  *   ASIS_SEDES                  JSON, ej: [{"id":149,"nombre":"LIMA"}]
  *                               id = número de sede en AsisPro; nombre = como se verá en Mi tareo
  *   DIA_INICIO_PERIODO          Día en que empieza el periodo (por defecto 21: del 21 al 20)
+ *   PERIODOS_ATRAS              Cuántos periodos anteriores traer además del actual (por defecto 1)
  *   SALIDA                      Archivo de salida (por defecto tareo.json)
  *   ASIS_API                    Base de la API (por defecto https://server.lavoroassistance.pe/api)
  *   ASIS_CAMPO_USUARIO/CLAVE/SISTEMA  Nombres de los campos del login (usuario / clave / sistema)
@@ -33,6 +34,7 @@ const CFG = {
   sedes: JSON.parse(env('ASIS_SEDES', '[{"id":149,"nombre":"LIMA"}]')),
   out: env('SALIDA', 'tareo.json'),
   diaCorte: +env('DIA_INICIO_PERIODO', '21'),
+  atras: Math.max(0, +env('PERIODOS_ATRAS', '1')),
   chunk: Math.max(1, +env('CHUNK_DIAS', '7')),
 };
 const arg = n => { const i = process.argv.indexOf('--' + n); return i > -1 ? process.argv[i + 1] : null; };
@@ -47,7 +49,7 @@ function periodoActual() {
   const t = new Date(Date.now() - 5 * 36e5); // hora de Lima
   let y = t.getUTCFullYear(), m = t.getUTCMonth();
   if (t.getUTCDate() < CFG.diaCorte) m -= 1;
-  const ini = new Date(Date.UTC(y, m, CFG.diaCorte));
+  const ini = new Date(Date.UTC(y, m - CFG.atras, CFG.diaCorte));
   const fin = new Date(Date.UTC(y, m + 1, CFG.diaCorte - 1));
   return [isoD(ini), isoD(fin)];
 }
@@ -93,6 +95,7 @@ function codigo(r) {
     const n = nocturnas(r, ini, fin);
     return n > 0 ? `${ini}N (${n.toFixed(2)}-N)-${suf}` : `${ini}-${suf}`;
   };
+  if (/NO ASIGNAD|SIN ASIGNAR|SIN PROGRAM/.test(d)) return ''; // todavía sin turno: queda como "sin dato"
   if (/DESC.*MED|^DM\b/.test(d)) return 'DM';
   if (/FERIAD/.test(d)) return lab ? trab('FEL') : 'FE';
   if (/DESCANSO/.test(d)) return lab ? trab('DL') : 'D';
