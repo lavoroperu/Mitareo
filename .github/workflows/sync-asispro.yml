@@ -1,0 +1,35 @@
+name: Sincronizar AsisPro
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: sync-asispro
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Leer AsisPro y generar tareo.json
+        env:
+          ASIS_USER: ${{ secrets.ASIS_USER }}
+          ASIS_PASS: ${{ secrets.ASIS_PASS }}
+          ASIS_SISTEMA: asisprod
+          ASIS_SEDES: '[{"id":149,"nombre":"LIMA"}]'
+          DIA_INICIO_PERIODO: '21'
+        run: node sync_asispro.js
+      - name: Publicar si cambió
+        run: |
+          if [ -n "$(git status --porcelain tareo.json)" ]; then
+            git config user.name  "sync-asispro"
+            git config user.email "sync-asispro@users.noreply.github.com"
+            git add tareo.json
+            git commit -m "AsisPro: actualización de asistencia"
+            git push
+          fi
