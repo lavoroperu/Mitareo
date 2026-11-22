@@ -1167,4 +1167,50 @@ function tdDownload(){
 
 
 setup();
+
+/* ===== Sincronización automática con AsisPro =====
+   sync_asispro.js genera tareo.json junto a este archivo. Aquí se lee cada 5 minutos y se
+   mezcla con las sedes del Excel: la sede con el mismo nombre se reemplaza, las demás no se tocan.
+   Si tareo.json no existe o falla, todo sigue funcionando con los datos incrustados. */
+const SYNC_URL='tareo.json',SYNC_MS=5*60*1000;let SYNC_GEN='';
+function syncInfo(t){let e=$('syncInfo');if(!e){e=document.createElement('div');e.id='syncInfo';e.className='sub';e.style.cssText='text-align:center;margin:14px 0 0';document.querySelector('.wrap').appendChild(e)}e.textContent=t}
+function syncMerge(inc){
+  inc.forEach(ns=>{
+    const k=SEDES.findIndex(s=>s.name.toLowerCase()===ns.name.toLowerCase()),old=k>=0?SEDES[k]:null;
+    if(old){const byC=new Map(),byK=new Map();
+      old.people.forEach(p=>{(p.c||[]).forEach(c=>byC.set(digs(c),p));byK.set(norm(p.n),p)});
+      ns.people.forEach(p=>{const o=(p.c||[]).map(c=>byC.get(digs(c))).find(Boolean)||byK.get(norm(p.n));
+        if(o){if(!p.g&&o.g)p.g=o.g;if(!p.i&&o.i)p.i=o.i}})}
+    ns.people.forEach(p=>p.k=norm(p.n));
+    k>=0?SEDES[k]=ns:SEDES.push(ns)})}
+function syncApply(inc){
+  if($('obsOv').classList.contains('show'))return false; // no mover datos mientras alguien llena una observación
+  const cur=D?D.name:'',sig=x=>x?x.days[0].d+'|'+x.days.length:'',antes=sig(D);
+  syncMerge(inc);
+  let k=SEDES.findIndex(s=>s.name===cur);if(k<0)k=0;
+  if(SEDES.length){
+    if(sig(SEDES[k])!==antes||!D)useSede(k);
+    else{SI=k;D=SEDES[k];nD=D.days.length;C=D.codes;P=D.people;starts=[...new Set(C.filter(c=>c.g==='work').map(c=>c.st))].sort()}}
+  try{TD.cache=null}catch(e){}
+  try{
+    if(!$('home').hidden&&!$('me').hidden){
+      const me=JSON.parse(localStorage.getItem('tareo_me')||'null');let si=-1,pi=-1;
+      if(me){si=SEDES.findIndex(s=>s.name===me.s);if(si>=0)pi=SEDES[si].people.findIndex(p=>p.n===me.p)}
+      if(pi>=0){try{sessionStorage.setItem('tareo_scroll',String(window.scrollY))}catch(e){}showMe(si,pi,true)}else goHome()}
+    else if(!$('team').hidden)render();
+    else if(!$('admin').hidden)slist();
+    else if(!$('home').hidden&&$('hq').value.trim())homeSearch()}catch(e){}
+  return true}
+async function syncAsis(){
+  try{
+    const r=await fetch(SYNC_URL+'?_='+Date.now(),{cache:'no-store'});if(!r.ok)return;
+    const j=await r.json();
+    if(!j||!Array.isArray(j.sedes)||!j.sedes.length||j.generado===SYNC_GEN)return;
+    if(!syncApply(j.sedes))return;
+    SYNC_GEN=j.generado;
+    syncInfo('Último cambio recibido de AsisPro: '+new Date(j.generado).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'}))
+  }catch(e){}}
+syncAsis();setInterval(syncAsis,SYNC_MS);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncAsis()});
+
 </script></body></html>
